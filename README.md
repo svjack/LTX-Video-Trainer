@@ -11,6 +11,30 @@
 
 </div>
 
+```bash
+git clone https://github.com/Lightricks/LTX-Video-Trainer && cd LTX-Video-Trainer
+pip install git+https://github.com/Lightricks/LTX-Video-Trainer.git
+
+wget https://huggingface.co/datasets/svjack/Gosick_Source_Videos/resolve/main/Gosick%20E01.mp4
+
+# Split a long video into scenes
+python scripts/split_scenes.py "Gosick E01.mp4" scenes_output_dir/ \
+    --filter-shorter-than 5s
+
+# Generate captions for all videos in the scenes directory
+python scripts/caption_videos.py scenes_output_dir/ \
+    --output scenes_output_dir/captions.json
+
+# Preprocess the dataset using the generated captions.json
+python scripts/preprocess_dataset.py scenes_output_dir/captions.json \
+    --resolution-buckets "832x480x25" \
+    --caption-column "caption" \
+    --video-column "media_path"
+
+python scripts/train.py ltxv_2b_lora_low_vram.yaml
+
+```
+
 This repository provides tools and scripts for training and fine-tuning Lightricks' [LTX-Video (LTXV)](https://github.com/Lightricks/LTX-Video) model.
 It allows training LoRAs on top of LTX-Video, as well as fine-tuning the entire model on custom datasets.
 The repository also includes auxiliary utilities for preprocessing datasets, captioning videos, splitting scenes, etc.
