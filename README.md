@@ -46,6 +46,26 @@ python scripts/preprocess_dataset.py Ayu_Tsukimiya/captions.json \
     --video-column "media_path" --model-source "LTXV_2B_0.9.6_DEV"
   
 python scripts/train.py ltxv_2b_lora_low_vram.yaml
+
+git clone https://huggingface.co/datasets/svjack/Genshin-Impact-Cutscenes-with-score-organized
+mkdir Genshin-Impact-Cutscenes && cp Genshin-Impact-Cutscenes-with-score-organized/*.mp4 Genshin-Impact-Cutscenes
+mkdir Genshin-Impact-Cutscenes && cp Genshin-Impact-Cutscenes-with-score-organized/*.mp4 Genshin-Impact-Cutscenes
+
+import pandas as pd
+df = pd.read_csv("Genshin-Impact-Cutscenes-with-score-organized/metadata.csv")
+l = df[["file_name", "prompt"]].apply(
+    lambda x: x.to_dict(), axis = 1
+).values.tolist()
+import json
+with open("Genshin-Impact-Cutscenes/captions.json", "w") as f:
+    json.dump(l, f)
+
+python scripts/preprocess_dataset.py Genshin-Impact-Cutscenes/captions.json \
+    --resolution-buckets "512x384x25" \
+    --caption-column "prompt" \
+    --video-column "file_name" --model-source "LTXV_13B_097_DEV"
+
+python scripts/train.py ltxv_13b_lora_low_vram.yaml
 ```
 
 This repository provides tools and scripts for training and fine-tuning Lightricks' [LTX-Video (LTXV)](https://github.com/Lightricks/LTX-Video) model.
