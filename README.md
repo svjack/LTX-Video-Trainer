@@ -29,10 +29,23 @@ python scripts/caption_videos.py scenes_output_dir/ \
 python scripts/preprocess_dataset.py scenes_output_dir/captions.json \
     --resolution-buckets "832x480x25" \
     --caption-column "caption" \
-    --video-column "media_path"
+    --video-column "media_path" --model-source "LTXV_2B_0.9.6_DEV"
 
 python scripts/train.py ltxv_2b_lora_low_vram.yaml
 
+
+git clone https://huggingface.co/datasets/svjack/Ayu_Tsukimiya_Videos_Omni_Captioned
+mkdir Ayu_Tsukimiya && cp Ayu_Tsukimiya_Videos_Omni_Captioned/*.mp4 Ayu_Tsukimiya/
+
+python scripts/caption_videos.py Ayu_Tsukimiya \
+    --output Ayu_Tsukimiya/captions.json
+
+python scripts/preprocess_dataset.py Ayu_Tsukimiya/captions.json \
+    --resolution-buckets "832x480x25" \
+    --caption-column "caption" \
+    --video-column "media_path" --model-source "LTXV_2B_0.9.6_DEV"
+  
+python scripts/train.py ltxv_2b_lora_low_vram.yaml
 ```
 
 This repository provides tools and scripts for training and fine-tuning Lightricks' [LTX-Video (LTXV)](https://github.com/Lightricks/LTX-Video) model.
