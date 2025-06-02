@@ -68,6 +68,86 @@ python scripts/preprocess_dataset.py Genshin-Impact-Cutscenes/captions.json \
 python scripts/train.py ltxv_13b_lora_low_vram.yaml
 ```
 
+#### Inference 
+```python
+sudo apt-get update && sudo apt-get install ffmpeg git-lfs cbm
+
+pip install -U diffusers transformers torch sentencepiece peft moviepy protobuf
+pip install git+https://github.com/Lightricks/LTX-Video.git
+pip install git+https://github.com/huggingface/diffusers.git
+
+
+import torch
+from diffusers import LTXConditionPipeline, LTXLatentUpsamplePipeline
+from diffusers.pipelines.ltx.pipeline_ltx_condition import LTXVideoCondition
+from diffusers.utils import export_to_video
+
+pipe = LTXConditionPipeline.from_pretrained("Lightricks/LTX-Video-0.9.7-dev", torch_dtype=torch.bfloat16)
+pipe.load_lora_weights("LTXV_13B_097_DEV_Ayu_Tsukimiya_lora/checkpoints/lora_weights_step_04500.safetensors")
+pipe_upsample = LTXLatentUpsamplePipeline.from_pretrained("Lightricks/ltxv-spatial-upscaler-0.9.7", vae=pipe.vae, torch_dtype=torch.bfloat16)
+#pipe.to("cuda")
+#pipe_upsample.to("cuda")
+#pipe.vae.enable_tiling()
+pipe.enable_sequential_cpu_offload()
+pipe_upsample.enable_sequential_cpu_offload()
+
+def round_to_nearest_resolution_acceptable_by_vae(height, width):
+    height = height - (height % pipe.vae_spatial_compression_ratio)
+    width = width - (width % pipe.vae_spatial_compression_ratio)
+    return height, width
+
+prompt = "an animated character with orange hair and wings, smiling warmly while standing on a tiled floor with a snowy background, suggesting a cheerful and inviting atmosphere."
+negative_prompt = "worst quality, inconsistent motion, blurry, jittery, distorted"
+#expected_height, expected_width = 384, 512
+expected_height, expected_width = 480, 832
+downscale_factor = 2 / 3
+num_frames = 121
+
+# Part 1. Generate video at smaller resolution
+downscaled_height, downscaled_width = int(expected_height * downscale_factor), int(expected_width * downscale_factor)
+downscaled_height, downscaled_width = round_to_nearest_resolution_acceptable_by_vae(downscaled_height, downscaled_width)
+latents = pipe(
+    conditions=None,
+    prompt=prompt,
+    negative_prompt=negative_prompt,
+    width=downscaled_width,
+    height=downscaled_height,
+    num_frames=num_frames,
+    num_inference_steps=30,
+    generator=torch.Generator().manual_seed(0),
+    output_type="latent",
+).frames
+
+# Part 2. Upscale generated video using latent upsampler with fewer inference steps
+# The available latent upsampler upscales the height/width by 2x
+upscaled_height, upscaled_width = downscaled_height * 2, downscaled_width * 2
+upscaled_latents = pipe_upsample(
+    latents=latents,
+    output_type="latent"
+).frames
+
+# Part 3. Denoise the upscaled video with few steps to improve texture (optional, but recommended)
+video = pipe(
+    prompt=prompt,
+    negative_prompt=negative_prompt,
+    width=upscaled_width,
+    height=upscaled_height,
+    num_frames=num_frames,
+    denoise_strength=0.4,  # Effectively, 4 inference steps out of 10
+    num_inference_steps=10,
+    latents=upscaled_latents,
+    decode_timestep=0.05,
+    image_cond_noise_scale=0.025,
+    generator=torch.Generator().manual_seed(0),
+    output_type="pil",
+).frames[0]
+
+# Part 4. Downscale the video to the expected resolution
+video = [frame.resize((expected_width, expected_height)) for frame in video]
+
+export_to_video(video, "output.mp4", fps=24)
+```
+
 This repository provides tools and scripts for training and fine-tuning Lightricks' [LTX-Video (LTXV)](https://github.com/Lightricks/LTX-Video) model.
 It allows training LoRAs on top of LTX-Video, as well as fine-tuning the entire model on custom datasets.
 The repository also includes auxiliary utilities for preprocessing datasets, captioning videos, splitting scenes, etc.
