@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-
+import sys 
+sys.path.insert(0, "src")
 """
 Preprocess a video dataset by computing video clips latents and text captions embeddings.
 
