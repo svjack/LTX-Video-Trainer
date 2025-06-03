@@ -202,7 +202,8 @@ First, install [uv](https://docs.astral.sh/uv/getting-started/installation/) if 
 Then clone the repository and install the dependencies:
 
 ```bash
-git clone https://github.com/Lightricks/LTX-Video-Trainer
+#git clone https://github.com/Lightricks/LTX-Video-Trainer
+git clone https://github.com/svjack/LTX-Video-Trainer
 cd LTX-Video-Trainer
 uv sync
 source .venv/bin/activate
