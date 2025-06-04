@@ -11,8 +11,15 @@
 
 </div>
 
+### Video Demo
 ```bash
 git clone https://github.com/Lightricks/LTX-Video-Trainer && cd LTX-Video-Trainer
+
+pip install -r requirements.txt
+pip install -U diffusers transformers torch sentencepiece peft moviepy protobuf
+pip install git+https://github.com/Lightricks/LTX-Video.git
+pip install git+https://github.com/huggingface/diffusers.git
+
 pip install git+https://github.com/Lightricks/LTX-Video-Trainer.git
 
 wget https://huggingface.co/datasets/svjack/Gosick_Source_Videos/resolve/main/Gosick%20E01.mp4
@@ -62,6 +69,68 @@ with open("Genshin-Impact-Cutscenes/captions.json", "w") as f:
 
 python scripts/preprocess_dataset.py Genshin-Impact-Cutscenes/captions.json \
     --resolution-buckets "512x384x25" \
+    --caption-column "prompt" \
+    --video-column "file_name" --model-source "LTXV_13B_097_DEV"
+
+python scripts/train.py ltxv_13b_lora_low_vram.yaml
+```
+
+#### Image Demo 
+```python
+import os 
+os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
+
+from datasets import load_dataset
+from PIL import Image
+import os
+import json
+
+# 加载数据集
+dataset = load_dataset("svjack/Escoffier_Images_Images_Captioned")
+
+# 设置输出路径
+output_dir = "escoffier_images"
+os.makedirs(output_dir, exist_ok=True)
+
+# 用于存储文件名和对应的 prompt
+file_prompt_list = []
+
+# 遍历数据集并处理每条记录
+for idx, item in enumerate(dataset["train"]):
+    try:
+        # 获取图像和 prompt
+        image: Image.Image = item["image"]
+        prompt: str = item["prompt"]
+
+        # 定义文件名（四位数编号）
+        filename_base = f"{idx:04d}"
+        image_path = os.path.join(output_dir, f"{filename_base}.png")
+
+        # 保存图像为 PNG 格式
+        image.save(image_path)
+
+        # 添加文件名和 prompt 到列表
+        file_prompt_list.append({
+            "file_name": f"{filename_base}.png",
+            "prompt": prompt
+        })
+
+    except Exception as e:
+        print(f"Error processing item {idx}: {str(e)}")
+        continue
+
+# 写入 JSON 文件
+json_output_path = os.path.join("escoffier_images", "captions.json")
+with open(json_output_path, "w", encoding="utf-8") as f:
+    json.dump(file_prompt_list, f, ensure_ascii=False, indent=2)
+
+print(f"✅ 已成功保存 {len(file_prompt_list)} 张图片及其描述，并生成 {json_output_path}")
+
+import sys 
+sys.path.insert(0, "src")
+
+python scripts/preprocess_dataset.py escoffier_images/captions.json \
+    --resolution-buckets "1024x768x1" \
     --caption-column "prompt" \
     --video-column "file_name" --model-source "LTXV_13B_097_DEV"
 
